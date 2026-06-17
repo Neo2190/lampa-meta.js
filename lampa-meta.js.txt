@@ -1,0 +1,70 @@
+(function () {
+    'use strict';
+
+    var API_TOKEN = 'eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiI4YTI3ZjZmNTI2NWYwZWMzNzEwN2Y1MTkzZTRiODFlMSIsIm5iZiI6MTc4MTcwMTExMC4xMzc5OTk4LCJzdWIiOiI2YTMyOTlmNjA1MTg0YWMyY2I5NWUxNzgiLCJzY29wZXMiOlsiYXBpX3JlYWQiXSwidmVyc2lvbiI6MX0.tJAWO_TIXBz9bbPqCI58QKuGfw5KJtbYoSCoLY7_7iQ';
+
+    function startPlugin() {
+        console.log('Lampa Meta Plugin: Loaded');
+
+        Lampa.Listener.follow('card', function (event) {
+            if (event.type === 'create' && event.object && event.card) {
+                var cardData = event.object;
+                var cardElement = event.card;
+
+                setTimeout(function () {
+                    drawBadges(cardElement, cardData);
+                }, 20);
+            }
+        });
+    }
+
+    function drawBadges(cardElement, data) {
+        if ($(cardElement).find('.lampa-custom-meta').length) return;
+
+        var wrapper = $('<div class="lampa-custom-meta" style="position: absolute; bottom: 8px; left: 8px; right: 8px; display: flex; justify-content: space-between; align-items: center; pointer-events: none; z-index: 10;"></div>');
+
+        var quality = data.quality || (data.video_info && data.video_info.quality);
+        if (!quality && data.id) {
+            var type = data.name ? 'tv' : 'movie';
+            $.ajax({
+                url: 'https://api.themoviedb.org/3/' + type + '/' + data.id,
+                method: 'GET',
+                headers: {
+                    'Authorization': 'Bearer ' + API_TOKEN,
+                    'Content-Type': 'application/json;charset=utf-8'
+                },
+                success: function(res) {
+                    if (res.release_date && parseInt(res.release_date) >= 2020) {
+                        renderQuality(wrapper, '4K');
+                    }
+                }
+            });
+        } else if (quality) {
+            renderQuality(wrapper, quality);
+        }
+
+        var rating = data.vote_average || data.rating;
+        if (rating) {
+            var score = parseFloat(rating).toFixed(1);
+            var ratingBadge = $('<div style="background: rgba(20, 20, 20, 0.85); color: #fff; font-weight: 700; font-size: 12px; padding: 3px 7px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.15); margin-left: auto; box-shadow: 0 2px 4px rgba(0,0,0,0.4);">' + score + '</div>');
+            wrapper.append(ratingBadge);
+        }
+
+        var target = $(cardElement).find('.card__view').length ? $(cardElement).find('.card__view') : $(cardElement);
+        target.append(wrapper);
+    }
+
+    function renderQuality(container, text) {
+        if (container.find('.badge-q').length) return;
+        var qBadge = $('<div class="badge-q" style="background: #ffcc00; color: #111; font-weight: 800; font-size: 11px; padding: 2px 5px; border-radius: 4px; text-transform: uppercase; box-shadow: 0 2px 4px rgba(0,0,0,0.5);">' + text + '</div>');
+        container.prepend(qBadge);
+    }
+
+    if (window.appready) {
+        startPlugin();
+    } else {
+        Lampa.Listener.follow('app', function (event) {
+            if (event.type === 'ready') startPlugin();
+        });
+    }
+})();
